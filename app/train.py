@@ -12,6 +12,9 @@ if not uri:
     raise ValueError("MLFLOW_TRACKING_URI is not set in environment variables.")
 print("MLFLOW_TRACKING_URI:", os.getenv("MLFLOW_TRACKING_URI"))
 mlflow.set_tracking_uri(uri)
+print("MLFLOW_TRACKING_URI:", mlflow.get_tracking_uri())
+print("Backend Store URI:", os.getenv("BACKEND_STORE_URI"))
+print("Artifact Store URI:", os.getenv("ARTIFACT_STORE_URI"))
 
 # Load data
 def load_data(url):

@@ -7,143 +7,81 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.pipeline import Pipeline
 import os
+
+# ====== CONFIGURATION ======
 uri = os.getenv("MLFLOW_TRACKING_URI")
 if not uri:
-    raise ValueError("MLFLOW_TRACKING_URI is not set in environment variables.")
-print("MLFLOW_TRACKING_URI:", os.getenv("MLFLOW_TRACKING_URI"))
+    raise ValueError("❌ MLFLOW_TRACKING_URI is not set in environment variables.")
+print("📍 MLFLOW_TRACKING_URI:", uri)
 mlflow.set_tracking_uri(uri)
-print("MLFLOW_TRACKING_URI:", mlflow.get_tracking_uri())
-print("Backend Store URI:", os.getenv("BACKEND_STORE_URI"))
-print("Artifact Store URI:", os.getenv("ARTIFACT_STORE_URI"))
 
-# Load data
+print("🔧 MLflow tracking URI (applied):", mlflow.get_tracking_uri())
+print("📦 Backend Store URI:", os.getenv("BACKEND_STORE_URI"))
+print("🗂️ Artifact Store URI:", os.getenv("ARTIFACT_STORE_URI"))
+
+# ====== DATA LOADING ======
 def load_data(url):
-    """
-    Load dataset from the given URL.
-
-    Args:
-        url (str): URL to the CSV file.
-
-    Returns:
-        pd.DataFrame: Loaded dataset.
-    """
+    print("📥 Chargement des données...")
     return pd.read_csv(url)
 
-# Preprocess data
+# ====== PREPROCESSING ======
 def preprocess_data(df):
-    """
-    Split the dataframe into X (features) and y (target).
-
-    Args:
-        df (pd.DataFrame): Input dataframe.
-
-    Returns:
-        tuple: Split data (X_train, X_test, y_train, y_test).
-    """
+    print("🧹 Prétraitement des données...")
     X = df.iloc[:, :-1]
     y = df.iloc[:, -1]
     return train_test_split(X, y, test_size=0.2)
 
-# Create the pipeline
+# ====== PIPELINE CREATION ======
 def create_pipeline():
-    """
-    Create a machine learning pipeline with StandardScaler and RandomForestRegressor.
-
-    Returns:
-        Pipeline: A scikit-learn pipeline object.
-    """
-    return Pipeline(steps=[
+    print("🛠️ Création du pipeline...")
+    return Pipeline([
         ("standard_scaler", StandardScaler()),
         ("Random_Forest", RandomForestRegressor())
     ])
 
-# Train model
+# ====== TRAINING ======
 def train_model(pipe, X_train, y_train, param_grid, cv=2, n_jobs=-1, verbose=3):
-    """
-    Train the model using GridSearchCV.
-
-    Args:
-        pipe (Pipeline): The pipeline to use for training.
-        X_train (pd.DataFrame): Training features.
-        y_train (pd.Series): Training target.
-        param_grid (dict): The hyperparameter grid to search over.
-        cv (int): Number of cross-validation folds.
-        n_jobs (int): Number of jobs to run in parallel.
-        verbose (int): Verbosity level.
-
-    Returns:
-        GridSearchCV: Trained GridSearchCV object.
-    """
+    print("🏋️‍♂️ Entraînement du modèle avec GridSearchCV...")
     model = GridSearchCV(pipe, param_grid, n_jobs=n_jobs, verbose=verbose, cv=cv, scoring="r2")
     model.fit(X_train, y_train)
     return model
 
-# Log metrics and model to MLflow
-def log_metrics_and_model(model, X_train, y_train, X_test, y_test, artifact_path, registered_model_name):
-    """
-    Log training and test metrics, and the model to MLflow.
-
-    Args:
-        model (GridSearchCV): The trained model.
-        X_train (pd.DataFrame): Training features.
-        y_train (pd.Series): Training target.
-        X_test (pd.DataFrame): Test features.
-        y_test (pd.Series): Test target.
-        artifact_path (str): Path to store the model artifact.
-        registered_model_name (str): Name to register the model under in MLflow.
-    """
+# ====== LOGGING TO MLFLOW ======
+def log_metrics_and_model(model, X_train, y_train, X_test, y_test, artifact_path):
+    print("📊 Log des métriques dans MLflow...")
     mlflow.log_metric("Train Score", model.score(X_train, y_train))
     mlflow.log_metric("Test Score", model.score(X_test, y_test))
+    print("✅ Métriques enregistrées.")
+
     mlflow.sklearn.log_model(
         sk_model=model,
-        artifact_path=artifact_path,
-        registered_model_name=registered_model_name
+        artifact_path=artifact_path
     )
+    print("✅ Modèle enregistré dans les artefacts.")
 
-# Main function to execute the workflow
-def run_experiment(experiment_name, data_url, param_grid, artifact_path, registered_model_name):
-    """
-    Run the entire ML experiment pipeline.
-    """
-    # Start timing
+# ====== MAIN WORKFLOW ======
+def run_experiment(experiment_name, data_url, param_grid, artifact_path):
     start_time = time.time()
 
-    # Load and preprocess data
     df = load_data(data_url)
     X_train, X_test, y_train, y_test = preprocess_data(df)
-
-    # Create pipeline
     pipe = create_pipeline()
 
-    # Set experiment
+    print(f"📁 Tentative de définition de l'expérience MLflow : '{experiment_name}'")
     mlflow.set_experiment(experiment_name)
+
     experiment = mlflow.get_experiment_by_name(experiment_name)
+    if experiment is None:
+        raise RuntimeError(f"❌ Expérience '{experiment_name}' introuvable ou non créée.")
 
-    # # Enable autolog (optional)
-    # mlflow.sklearn.autolog()
-
-    # Start MLflow run
     with mlflow.start_run(experiment_id=experiment.experiment_id):
-        # Train model
         model = train_model(pipe, X_train, y_train, param_grid)
+        log_metrics_and_model(model, X_train, y_train, X_test, y_test, artifact_path)
 
-        # Log metrics and model explicitly
-        log_metrics_and_model(
-            model=model,
-            X_train=X_train,
-            y_train=y_train,
-            X_test=X_test,
-            y_test=y_test,
-            artifact_path=artifact_path,
-            registered_model_name=registered_model_name
-        )
+    print(f"✅ Entraînement terminé en {time.time() - start_time:.2f} secondes")
 
-    print(f"...Training Done! --- Total training time: {time.time() - start_time:.2f} seconds")
-
-
-# Entry point for the script
+# ====== ENTRY POINT ======
 if __name__ == "__main__":
-    # Define experiment parameters
     experiment_name = "hyperparameter_tuning"
     data_url = "https://julie-2-next-resources.s3.eu-west-3.amazonaws.com/full-stack-full-time/linear-regression-ft/californian-housing-market-ft/california_housing_market.csv"
     param_grid = {
@@ -151,7 +89,6 @@ if __name__ == "__main__":
         "Random_Forest__criterion": ["squared_error"]
     }
     artifact_path = "modeling_housing_market"
-    registered_model_name = "random_forest"
 
-    # Run the experiment
-    run_experiment(experiment_name, data_url, param_grid, artifact_path, registered_model_name)
+    run_experiment(experiment_name, data_url, param_grid, artifact_path)
+

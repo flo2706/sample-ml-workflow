@@ -43,7 +43,7 @@ pipeline {
                     sh '''
                     docker run --rm --env-file env.list \
                     ml-pipeline-image \
-                    bash -c "pytest --maxfail=1 --disable-warnings"
+                    bash -c "pytest --maxfail=1 --disable-warnings && python app/train.py"
                     '''
                 }
             }

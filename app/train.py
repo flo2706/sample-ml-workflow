@@ -7,8 +7,10 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.pipeline import Pipeline
 import os
-mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI"))
-
+uri = os.getenv("MLFLOW_TRACKING_URI")
+if not uri:
+    raise ValueError("MLFLOW_TRACKING_URI is not set in environment variables.")
+mlflow.set_tracking_uri(uri)
 
 # Load data
 def load_data(url):
@@ -113,8 +115,8 @@ def run_experiment(experiment_name, data_url, param_grid, artifact_path, registe
     mlflow.set_experiment(experiment_name)
     experiment = mlflow.get_experiment_by_name(experiment_name)
 
-    # Enable autolog (optional)
-    mlflow.sklearn.autolog()
+    # # Enable autolog (optional)
+    # mlflow.sklearn.autolog()
 
     # Start MLflow run
     with mlflow.start_run(experiment_id=experiment.experiment_id):

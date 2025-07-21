@@ -10,6 +10,7 @@ import os
 uri = os.getenv("MLFLOW_TRACKING_URI")
 if not uri:
     raise ValueError("MLFLOW_TRACKING_URI is not set in environment variables.")
+print("MLFLOW_TRACKING_URI:", os.getenv("MLFLOW_TRACKING_URI"))
 mlflow.set_tracking_uri(uri)
 
 # Load data

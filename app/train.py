@@ -6,6 +6,9 @@ from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.pipeline import Pipeline
+import os
+mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI"))
+
 
 # Load data
 def load_data(url):
@@ -95,13 +98,6 @@ def log_metrics_and_model(model, X_train, y_train, X_test, y_test, artifact_path
 def run_experiment(experiment_name, data_url, param_grid, artifact_path, registered_model_name):
     """
     Run the entire ML experiment pipeline.
-
-    Args:
-        experiment_name (str): Name of the MLflow experiment.
-        data_url (str): URL to load the dataset.
-        param_grid (dict): The hyperparameter grid for GridSearchCV.
-        artifact_path (str): Path to store the model artifact.
-        registered_model_name (str): Name to register the model under in MLflow.
     """
     # Start timing
     start_time = time.time()
@@ -113,21 +109,31 @@ def run_experiment(experiment_name, data_url, param_grid, artifact_path, registe
     # Create pipeline
     pipe = create_pipeline()
 
-    # Set experiment's info 
+    # Set experiment
     mlflow.set_experiment(experiment_name)
-
-    # Get our experiment info
     experiment = mlflow.get_experiment_by_name(experiment_name)
 
-    # Call mlflow autolog
+    # Enable autolog (optional)
     mlflow.sklearn.autolog()
 
+    # Start MLflow run
     with mlflow.start_run(experiment_id=experiment.experiment_id):
         # Train model
-        train_model(pipe, X_train, y_train, param_grid)
+        model = train_model(pipe, X_train, y_train, param_grid)
 
-    # Print timing
-    print(f"...Training Done! --- Total training time: {time.time() - start_time} seconds")
+        # Log metrics and model explicitly
+        log_metrics_and_model(
+            model=model,
+            X_train=X_train,
+            y_train=y_train,
+            X_test=X_test,
+            y_test=y_test,
+            artifact_path=artifact_path,
+            registered_model_name=registered_model_name
+        )
+
+    print(f"...Training Done! --- Total training time: {time.time() - start_time:.2f} seconds")
+
 
 # Entry point for the script
 if __name__ == "__main__":
